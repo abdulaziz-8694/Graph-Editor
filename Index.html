@@ -1,0 +1,592 @@
+<!DOCTYPE HTML>
+<html> 
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="jquery-1.11.0.min.js" ></script>
+<style>
+body
+{
+	background-color:black;
+}
+</style>
+</head>
+<body>
+<center><h3 style="color:#CDCDCD;"><!--Heading of the document-->
+	Graph Editor...
+</h3>
+	<hr style="color:#FFFFFF;">
+	<div id = "container" >
+		<p id="debug"		style="text-align:center;color:#CDCDCD;"><i><b>
+	Click on any point inside canvas to draw a vertex.
+	</b></i></p><br>
+	<canvas id ="myDraw" width="600" height="600" style="float:left;border:3px  solid #FFFFFF;background-color:#D1D1E0;">
+		<p>Your browser doesnot support canvas.</p>
+	</canvas>
+</div>
+<div id="modes" style="background-color:#000000;text-align:left;color:#CDCDCD;height:500px;width:300px;float:top;border:1px  solid #000000;margin-top:0px;margin-left:650px;"><!--Modes of operations-->
+		<p style="text-align:left;"><i>Modes of operations</i></p>
+		<input id="addv" type="radio" name="options" value="addvertex" checked="true" onchange="handleChange();">Add Vertex <br>
+		<input id="adde" type="radio" name="options" value="addedge" onchange="handleChange();">Add Edge<br>
+		<input id="movev" type="radio" name="options" value="movevertex" onchange="handleChange();">Move Vertex<br>
+		<input id="dele" type="radio" name="options" value="deleteEdge" onchange="handleChange();">Delete Edge<br>
+		<input id="delv" type="radio" name="options" value="deleteVertex" onchange="handleChange();">Delete Vertex<br>
+		<input id="shortpath" type="radio" name="options" value="shortestpath" onchange="handleChange();">Find Shortest Path<br> 
+		<input id="mst" type="radio" name="options" value="findmst" onchange="findmst()">Find MST<br>
+<div id="saveload" style="width:300px;margin-top:75px;"><!--For saving and loading-->
+	<input id="file" type="text" name="file" value="" style="width:200px;">
+	<button id="save"	onclick="graph_save()" >Save...</button><br>
+	<button id="reset" onclick="reset_all();">Reset</button><!--for clearing the mst or shortest path to obtain original graph-->
+	<button id="clear" onclick="clear_all();">Clear</button><br><br><!--for clearing the graph-->
+	<p style="color:white;"><b><i>Filelist</i><b></p>
+	<select id="options" size="5" style="background-color:grey;color:white;width:200px"><!--Dropdownlist-->
+	</select><br><button id="load" onclick="load()">Load Graph</button>
+	</div>
+</div>
+
+</center>
+<script>
+var mode=1;				//mode of operation
+var select=0;			//0 if none or two vertices are selected
+var dragged=-1;			//vertex which is selected
+var dragged2=-1;		//vertex which is selected after first selection in add edge mode
+var draggable=false;	//if we can dragg or not
+var all=0;				//if we wwant to draw original graph
+var draw = document.getElementById("myDraw");  //canvas element
+var vertices=new Array();						//array of vertices
+var edges = new Array();						//array of edges
+
+function reset_all()//to clear mst and shortest path to get original graph
+{
+	all=1;
+	redraw();
+	all=0;
+	document.getElementById("addv").checked=true;
+}
+
+function clear_all()// to clear the whole canvas
+{
+	vertices=[];
+	edges=[];
+	reset_all();
+}
+
+function writeDescription()//to write the description of each mode changing when a mode is selected
+{
+	if(document.getElementById("addv").checked)
+		return "<b><i>Click on any point inside canvas to draw a vertex.</i></b>";
+	else if(document.getElementById("adde").checked)
+		return "<b><i>Click on two vertex one by one to draw an edge. Click on empty space in canvas to deselect.</i></b>";
+	else if(document.getElementById("movev").checked)
+		return "<b><i>Drag a vertex to move it. It will stop dragging on boundaries.</i></b>";
+	else if(document.getElementById("dele").checked)
+		return "<b><i>Click on two vertex one by one to delete an edge. Click on empty space in canvas to deselect.</i></b>";
+	else if(document.getElementById("delv").checked)
+		return "<b><i>Click on a vertex to delete that vertex.</i></b>";
+	else if(document.getElementById("mst").checked)
+		return "<b><i>The colored vertex are the edges in minimum spanning tree of the graph or forest(if not connected)</i></b>";
+	else if(document.getElementById("shortpath").checked)
+		return "<b><i>Select two vertex to find the shortest path(if connected). The colored edges are edges in the shortest path between two vertices</i></b>";
+}
+
+function handleChange()   //to reset flags when chanfing modes
+{
+	select=0;			
+	dragged=-1;			
+	dragged2=-1;	
+	draggable=false;	
+	all=1;
+	redraw();	
+	all=0;
+	var s=writeDescription();	
+	document.getElementById("debug").innerHTML=s;			
+}
+
+draw_circle=function(x,y,color,ctx)				//to draw circle using arc() method
+{
+
+	ctx.beginPath();
+	ctx.fillStyle=color;
+	ctx.arc(x,y,15,0,Math.PI*2);
+	ctx.lineWidth=4;
+	ctx.strokeStyle="#000000";
+	ctx.closePath();
+	ctx.stroke();
+	ctx.fill();
+}
+
+draw_Edge=function(source,target,color,ctx)		//to draw an edge using moveTo() and lineTo() method
+{
+	ctx.strokeStyle=color;
+	ctx.lineWidth=3;
+	ctx.beginPath();
+	ctx.moveTo(vertices[source].x,vertices[source].y);
+	ctx.lineTo(vertices[target].x,vertices[target].y);
+	ctx.closePath();
+	ctx.stroke();
+}
+
+function redraw(data)							//to redraw whole graph
+{
+	if(data==undefined){
+		var ctx = draw.getContext('2d');
+		ctx.clearRect(0,0,draw.width,draw.height);
+
+		for(var i=0;i<edges.length;i++)
+		{
+			var ctx=draw.getContext('2d');
+			draw_Edge(edges[i].source,edges[i].target,"#000000",ctx);
+		}
+		for(var i=0;i<vertices.length;i++)
+		{
+			var ctx=draw.getContext('2d');
+			if(all==1){										//if we want to draw the wole graph
+				vertices[i].color="#0ff0ff";
+			}
+			draw_circle(vertices[i].x,vertices[i].y,vertices[i].color,ctx);
+		}
+		all=0;
+	}
+	else//for mst and shortest path
+	{
+		var ctx = draw.getContext('2d');
+		ctx.clearRect(0,0,draw.width,draw.height);
+		for(var i=0;i<edges.length;i++)
+		{
+			//alert("edges:"+edges[i].source+"-"+edges[i].target);
+			color="#000000";
+			var ctx=draw.getContext('2d');
+			for(var j=0;j<data.length-1;j++)
+			{
+				if((data[j][0]==edges[i].source&&data[j][2]==edges[i].target)||(data[j][2]==edges[i].source&&data[j][0]==edges[i].target))
+				{
+					color="#9ede00";
+					break;
+				}
+			}
+			draw_Edge(edges[i].source,edges[i].target,color,ctx);
+		}
+		for(var i=0;i<vertices.length;i++)
+		{
+			var ctx=draw.getContext('2d');
+			if(all==1){										//if we want to draw the wole graph
+				vertices[i].color="#0ff0ff";
+			}
+			draw_circle(vertices[i].x,vertices[i].y,vertices[i].color,ctx);
+		}
+		all=0;
+	}
+
+}
+
+function deleteVertex(x)					//for removing a vertex
+{
+	
+	for(var i=0;i<edges.length;i++)
+	{
+			if(x==edges[i].source||x==edges[i].target)
+			{
+				edges.splice(i,1);
+				i--;
+			}
+	}
+	for(var i in edges)						//adjusting the source and target vertices after deleting edges
+	{
+		if(edges[i].source>x)
+			edges[i].source--;
+		if(edges[i].target>x)
+			edges[i].target--;
+		
+	}
+	vertices.splice(x,1);
+}
+
+function deleteEdge(x,y)		// for deleting an edge
+{
+	for(var i in edges)
+	{
+		if((x==edges[i].source&&y==edges[i].target)||(y==edges[i].source&&x==edges[i].target))
+		{	
+			edges.splice(i,1);
+			break;
+		}
+	}
+}
+
+function exist(x,y)			//if there exist an edge given two vertices
+{
+	for(var i in edges)
+	{
+		if((x==edges[i].source&&y==edges[i].target)||(y==edges[i].source&&x==edges[i].target))
+		{
+			//if(document.getElementById("dele").checked)
+				//selected_edge=i;
+			return true;
+		}
+	}
+	return false;
+}
+
+function isVertex(x,y)				//to check and return the selected vertex
+{
+	//alert(dragged);
+	for(var i=vertices.length-1;i>=0;i--)
+	{
+		var dist=Math.sqrt(((vertices[i].x-x)*(vertices[i].x-x))+((vertices[i].y-y)*(vertices[i].y-y)));
+		if(dist<=15)
+		{
+			if(select==0){
+				dragged=i;
+			}
+			else if(select==1)
+				dragged2=i;
+			return  [vertices[i].x,vertices[i].y,vertices[i].color];
+		}
+	}
+	return [-1,-1,""];
+}
+
+function getmousepos(e)				//to get x,y cordinate of mouse with respect to canvas
+{
+	var x;
+	var y;
+	if (e.pageX || e.pageY) { 
+	  x = e.pageX;
+	  y = e.pageY;
+	}
+	else { 
+	  x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft; 
+	  y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop; 
+	} 
+	x -= draw.offsetLeft;
+	y -= draw.offsetTop;
+	return [x,y];
+}
+function select_vertex(x,y)				//to select a vertex or deselect avertex if 
+{
+	var z=isVertex(x,y);
+	if(z[0]!=-1)
+	{
+		var ctx=draw.getContext('2d');
+		vertices[dragged].color="#ff00ff";
+		redraw();
+		draggable=true;
+		all=0;
+		//return vertices[]
+	}
+	else
+	{
+		dragged=-1;
+		dragged2=-1;
+		select=0;
+		all=1;
+		redraw();
+		
+	}
+
+}
+
+function add_remove(event)
+{
+	var c=getmousepos(event);
+	var x=c[0];
+	var y=c[1];
+	if(document.getElementById("addv").checked){//adding vertex
+		var vertex=new Object();
+		vertex.x=x;
+		vertex.y=y;
+		vertex.color="#0ff0ff"
+		vertices.push(vertex);
+		redraw();
+	}
+	else if(document.getElementById("movev").checked)	//selecting vertex
+	{
+		select_vertex(x,y);
+		//console.log(dragged);
+	}
+	else if(document.getElementById("adde").checked)	//adding edge
+	{
+		if(select==0)								//if no vertex is selected
+		{
+			select_vertex(x,y);
+			if(dragged!=-1)
+				select=1;
+			//alert(dragged);
+		}
+		else if(select==1)							//if one vertex is selected
+		{
+			select_vertex(x,y);
+			if(dragged2!=-1)
+			{
+				//alert(dragged2);
+				if(dragged!=dragged2)
+				{
+					if(!exist(dragged,dragged2))
+					{
+						var edge=new Object();
+						edge.source=dragged;
+						edge.target=dragged2;
+						edges.push(edge);
+					}
+					all=1;
+					redraw();
+				}
+
+				else
+				{
+					all=1;
+					redraw();
+				}
+				
+			}
+			select=0;
+
+		}
+		
+	}
+
+	else if(document.getElementById("dele").checked)//deleting the edges
+	{
+		if(select==0)
+		{
+			select_vertex(x,y);
+			if(dragged!=-1)
+				select=1;
+			//alert(dragged);
+		}
+		else if(select==1)
+		{
+			select_vertex(x,y);
+			if(dragged2!=-1)
+			{
+				if(dragged!=dragged2)
+				{
+					deleteEdge(dragged,dragged2);
+					
+					all=1;
+					redraw();
+				}
+				else
+				{
+					all=1;
+					redraw();
+				}
+			}
+			select=0;
+
+		}
+
+	}
+
+	else if(document.getElementById("delv").checked)//deleting the vertex
+	{
+		select_vertex(x,y);
+		if(dragged!=-1)
+		{
+			deleteVertex(dragged);
+			//dragged=-1;
+			//all=1;
+			redraw();
+		}
+	}
+
+}
+
+function modify(event)			//to move the vertex
+{	
+	var c=getmousepos(event);
+	var x=c[0];
+	var y=c[1];
+	if(document.getElementById("movev").checked && draggable)
+	{	
+		all=0;
+		if(x>=600||y>=600||x<=0||y<=0){
+			all=1;
+			draggable=false;
+		}
+		vertices[dragged].x=x;
+		vertices[dragged].y=y;
+		redraw();
+		all=1;
+	}
+	
+}
+
+function stop(event)					//when releasing the mouse button
+{	
+	if(document.getElementById("addv").checked||document.getElementById("movev").checked)
+		all=1;
+	if(!(document.getElementById("mst").checked||document.getElementById("shortpath").checked))
+	redraw();
+	all=0;
+
+	draggable=false;
+}
+
+/*function add_mst(data)
+{
+	data=data.split(":");
+	redraw(data);
+}*/
+
+function findmst(){
+	handleChange();
+	if(edges.length!=0)
+	{
+		var edgestr="";
+		var weight="";
+		for(var i in edges)
+		{
+			edgestr+=edges[i].source+"-"+edges[i].target+":";
+			w=Math.floor(Math.sqrt(((vertices[edges[i].source].x-vertices[edges[i].target].x)*(vertices[edges[i].source].x-vertices[edges[i].target].x))+((vertices[edges[i].source].y-vertices[edges[i].target].y)*(vertices[edges[i].source].y-vertices[edges[i].target].y))));
+			weight+=w+":";
+		}
+		$.ajax({url:"mst.jsp?edges="+edgestr+"&weight="+weight+"&node="+vertices.length,
+			success:function( data ) {
+					data=data.split(":");
+					redraw(data);
+			//	add_mst(data);
+			}
+		});
+	}
+	else
+	{
+		if(vertices.length==0)// if graph is emty 
+			alert("Graph is empty");
+		else// if graph has no edge
+			alert("No edges in graph");
+	}
+}
+
+function add_vertex(data)//add vertex to vertices array
+{
+	vertex=new Object();
+	vertex.x=data[0];
+	vertex.y=data[1];
+	vertex.color="#0ff0ff";
+	vertices.push(vertex);
+}
+
+function add_edge(data1,data2)//add edge to edges array
+{
+	edge=new Object();
+	edge.source=data1[0];
+	edge.target=data1[1];
+	edges.push(edge);
+}
+
+function add_graph(data)//to add graph 
+{
+	vertices=[];
+	edges=[];
+	var str=data.split("#");
+	var n=str[0];
+	var e=str[1];
+	var wt=str[2];
+	n=n.split(":");
+	e=e.split(":");
+	//console.log(e+"#"+wt);
+	for(var i=0;i<n.length-1;i++)
+	{
+		n[i]=n[i].split("-");
+		//console.log(nod[i][0]+" "+nod[i][1]+":"+i);
+		add_vertex(n[i]);
+	}
+	for(var i=0;i<e.length-1;i++)
+	{
+		e[i]=e[i].split("-");
+		add_edge(e[i]);
+	}
+}
+
+function load_names(data){//to update the dropdownlist
+	var names=data.split("#");
+	if(names.length<7)
+	{
+		document.getElementById("options").size=names.length;
+	}
+	var option="";
+	for(var i=0;i<names.length-1;i++)
+	{
+		option+="<option value=file"+i+">"+names[i]+"</option>";
+	}
+	document.getElementById("options").innerHTML=option;
+}
+
+function graph_save()	//to save the grap in Assignment/Saved/
+{
+	if(document.getElementById("file").value!=""){
+		var nodestr="";
+		var edgestr="";
+		for(var i in vertices)
+		{
+			nodestr+=vertices[i].x+"-"+vertices[i].y+":";
+		}
+
+		for(var i in edges)
+		{
+			edgestr+=edges[i].source+"-"+edges[i].target+":";
+		}
+		var filename=document.getElementById("file").value;
+		$.ajax({url:"save.jsp?nodes="+nodestr+"&edges="+edgestr+"&filename="+filename,
+			success:function( data ) {
+				if(data!="failed\n"){
+					load_names(data);
+					alert("saved");
+				}
+				else
+				{
+					alert("Error Ocurred!!. Try Again.")
+				}
+			}
+		});
+	}
+	else
+		alert("Enter a filename");
+
+	document.getElementById("file").value="";
+
+}
+
+function load()//to load the graph from file
+{
+	var name=$('#options').children("option:selected").text();
+	$.ajax({url:"load.jsp?filename="+name,
+		success:function(data){
+			if(data=="failed\n"){
+				alert("Error!!!.File does not exist");
+				$.ajax({url:"update.jsp",
+			success:function( data ) {
+				load_names(data);
+			}
+		});
+			}
+			else{
+				add_graph(data);
+				all=1;
+				redraw();
+				//console.log(data);
+			}
+			//add_graph(data);
+			//redraw();
+		}
+	});
+	document.getElementById("addv").checked=true;
+}
+
+window.onload=function(){// on loading the window
+	document.getElementById("addv").checked=true;
+	document.getElementById("file").value="";
+	$.ajax({url:"update.jsp",
+			success:function( data ) {
+				load_names(data);
+			}
+		});
+
+}
+draw.addEventListener("mousedown",add_remove,false);
+draw.addEventListener("mousemove",modify,false);
+draw.addEventListener("mouseup",stop,false);
+console.log(this);
+</script>
+</body>
+</html>
