@@ -135,15 +135,5 @@ DisjointSets set=new DisjointSets(Integer.parseInt(n));//implementing Kruskals A
 			set.Union(s,t);
 		}
 	}
-	resp.print(answer);
-
-
-
-	
-	
-
-
-
-
-
+	resp.print(answer+"0-0");//returning the result with a fake at the end
 %>
