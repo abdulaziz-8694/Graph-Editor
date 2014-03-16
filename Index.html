@@ -155,10 +155,11 @@ function redraw(data)							//to redraw whole graph
 			//alert("edges:"+edges[i].source+"-"+edges[i].target);
 			color="#000000";
 			var ctx=draw.getContext('2d');
-			for(var j=0;j<data.length-1;j++)
+			for(var j=0;j<data.length;j++)
 			{
-				if(data[j][0]==edges[i].source&&data[j][1]==edges[i].target)
+				if((data[j][0]==edges[i].source&&data[j][1]==edges[i].target)||(data[j][1]==edges[i].source&&data[j][0]==edges[i].target))
 				{
+					alert(data[j][0]+":")
 					color="#cd0000";
 					break;
 				}
@@ -278,11 +279,59 @@ function select_vertex(x,y)				//to select a vertex or deselect avertex if
 		dragged=-1;
 		dragged2=-1;
 		select=0;
+
 		all=1;
 		redraw();
 		
 	}
 
+}
+
+function findpath()
+{
+	if(edges.length!=0){
+		var sourcestr="";
+		var targetstr="";
+		var w="";
+		for(var i in edges)
+		{
+			sourcestr+=edges[i].source;
+			targetstr+=edges[i].target;
+			var temp=Math.floor(Math.sqrt(((vertices[edges[i].source].x-vertices[edges[i].target].x)*(vertices[edges[i].source].x-vertices[edges[i].target].x))+((vertices[edges[i].source].y-vertices[edges[i].target].y)*(vertices[edges[i].source].y-vertices[edges[i].target].y))));
+			w+=temp;
+			if(i!=edges.length-1)
+			{	
+				sourcestr+=":";
+				targetstr+=":";
+				w+=":";
+			}
+		}
+		$.ajax({url:"short.jsp?source="+sourcestr+"&target="+targetstr+"&weight="+w+"&node="+vertices.length+"&sp="+dragged+"-"+dragged2,
+			success:function(data)
+			{
+				//alert(data);
+				if(data!="failed"){
+					data=data.split(":");
+					for(var i=0;i<data.length;i++)
+					{
+						data[i]=data[i].split("-");
+						//alert(data[i][0]+"-"+data[i][1]+":");
+					}
+					redraw(data);
+				}
+				else
+					alert("graph disconnected!!");
+			}
+		});
+	}
+	else 
+	{
+		if(vertices.length==0)
+			alert("Graph is Empty")
+		else 
+			alert("No edges");
+	}
+	
 }
 
 function add_remove(event)
@@ -387,6 +436,38 @@ function add_remove(event)
 			//all=1;
 			redraw();
 		}
+	}
+	else if(document.getElementById("shortpath").checked)//finding the shortest path
+	{
+		if(select==0)
+		{
+			select_vertex(x,y);
+			if(dragged!=-1)
+				select=1;
+			//alert(dragged);
+		}
+		else if(select==1)
+		{
+			select_vertex(x,y);
+			if(dragged2!=-1)
+			{
+				if(dragged!=dragged2)
+				{
+					all=1;
+					redraw();
+					all=0;
+					findpath();
+				}
+				else
+				{
+					all=1;
+					redraw();
+				}
+			}
+			select=0;
+
+		}
+
 	}
 
 }
