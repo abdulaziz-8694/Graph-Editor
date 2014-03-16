@@ -117,7 +117,7 @@ draw_circle=function(x,y,color,ctx)				//to draw circle using arc() method
 draw_Edge=function(source,target,color,ctx)		//to draw an edge using moveTo() and lineTo() method
 {
 	ctx.strokeStyle=color;
-	ctx.lineWidth=3;
+	ctx.lineWidth=6;
 	ctx.beginPath();
 	ctx.moveTo(vertices[source].x,vertices[source].y);
 	ctx.lineTo(vertices[target].x,vertices[target].y);
@@ -157,9 +157,9 @@ function redraw(data)							//to redraw whole graph
 			var ctx=draw.getContext('2d');
 			for(var j=0;j<data.length-1;j++)
 			{
-				if((data[j][0]==edges[i].source&&data[j][2]==edges[i].target)||(data[j][2]==edges[i].source&&data[j][0]==edges[i].target))
+				if(data[j][0]==edges[i].source&&data[j][1]==edges[i].target)
 				{
-					color="#9ede00";
+					color="#cd0000";
 					break;
 				}
 			}
@@ -443,6 +443,8 @@ function findmst(){
 		$.ajax({url:"mst.jsp?edges="+edgestr+"&weight="+weight+"&node="+vertices.length,
 			success:function( data ) {
 					data=data.split(":");
+					for(var i in data)
+						data[i]=data[i].split("-");
 					redraw(data);
 			//	add_mst(data);
 			}
