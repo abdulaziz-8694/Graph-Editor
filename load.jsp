@@ -14,7 +14,4 @@ catch(IOException e)//If there is an exception
 {
 resp.print("failed");
 }
-
-	
-
 %>
