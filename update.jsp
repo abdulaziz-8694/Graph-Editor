@@ -9,7 +9,4 @@
 		filenames+=list[i].getName()+"#";
 	}
 	resp.print(filenames);
-
-	
-
 %>
