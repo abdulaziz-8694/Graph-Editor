@@ -23,6 +23,4 @@ catch(IOException e)
 {
 	resp.print("failed");
 }
-	
-
 %>
